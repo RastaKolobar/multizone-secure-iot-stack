@@ -25,13 +25,7 @@ IPADDR  ?= 192.168.0.2
 NETMASK ?= 255.255.255.0
 
 BOARD ?= X300
-ifeq ($(BOARD),E31)
-	RISCV_ARCH := rv32imac
-	RISCV_ABI := ilp32
-else ifeq ($(BOARD),E51)
-	RISCV_ARCH := rv64imac
-	RISCV_ABI := lp64
-else ifeq ($(BOARD),X300)
+ifeq ($(BOARD),X300)
 	RISCV_ARCH := rv32imac
 	RISCV_ABI := ilp32
 else
