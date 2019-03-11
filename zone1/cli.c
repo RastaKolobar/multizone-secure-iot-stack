@@ -120,7 +120,7 @@ void print_cpu_info(void) {
 
 	// mvendorid
 	const uint64_t mvendorid = ECALL_CSRR_MVENDID();
-	char *mvendorid_str = (mvendorid==0x10e31913 ? "SiFive, Inc.\0" : "Unknown\0");
+	char *mvendorid_str = (mvendorid==0x57c ? "Hex Five, Inc.\0" : "Unknown\0");
 	sprintf(print_buffer, "Vendor        : 0x%08x %s \r\n", (int)mvendorid, mvendorid_str);
 	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
 
