@@ -3,7 +3,7 @@
 #include <limits.h>
 #include <cli.h>
 #include <robot.h>
-#include <mzmsg.h>
+#include <msg.h>
 
 #define PRINT_BUFFER_SIZE   128
 static char print_buffer[PRINT_BUFFER_SIZE] = "";
@@ -42,7 +42,7 @@ static const char roboterror_msg[] =
 ;
 
 static uint32_t ulRobotValue = 0;
-static mzmsg_t zone2;
+static msg_t zone2;
 
 void restart(){
 	ECALL_CSRC_MIE();
@@ -85,12 +85,12 @@ unsigned long handle_syncexception(unsigned long mcause, unsigned long mtval, un
             break;
     }
 
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 	
 	if(rst){
 		sprintf(print_buffer, "\r\nPress any key to restart");
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
-		char c='\0'; while(mzmsg_read(&zone2, &c, 1) == 0);
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
+		char c='\0'; while(msg_read(&zone2, &c, 1) == 0);
 		restart();
 	}
 
@@ -116,33 +116,33 @@ void print_cpu_info(void) {
 		}
 
 	sprintf(print_buffer, "Machine ISA   : 0x%08x RV%d %s \r\n", (int)misa, xlen, misa_str);
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// mvendorid
 	const uint64_t mvendorid = ECALL_CSRR_MVENDID();
 	char *mvendorid_str = (mvendorid==0x57c ? "Hex Five, Inc.\0" : "Unknown\0");
 	sprintf(print_buffer, "Vendor        : 0x%08x %s \r\n", (int)mvendorid, mvendorid_str);
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// marchid
 	const uint64_t marchid = ECALL_CSRR_MARCHID();
 	sprintf(print_buffer, "Architecture  : 0x%08x \r\n", (int)marchid );
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// mimpid
 	const uint64_t mimpid = ECALL_CSRR_MIMPID();
 	sprintf(print_buffer, "Implementation: 0x%08x \r\n", (int)mimpid );
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// mhartid
 	const uint64_t mhartid = ECALL_CSRR_MHARTID();
 	sprintf(print_buffer, "Hart ID       : 0x%08x \r\n", (int)mhartid );
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// CPU Clock
 	const int cpu_clk = round(CPU_FREQ/1E+6);
 	sprintf(print_buffer, "CPU clock     : %d MHz \r\n", cpu_clk );
-	mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 } // print_cpu_info()
 
@@ -203,18 +203,18 @@ void print_stats(void){
 		char str[16]; sprintf(str, "%d", max_cycle); const int max_col = strlen(str);
 		for (int i=0; i<COUNT; i++){
 			sprintf(print_buffer, "%*d cycles in %*d us \r\n", max_col, cycles[i], max_col-2, (int)(cycles[i]*1000/MHZ));
-			mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+			msg_write(&zone2, print_buffer, strlen(print_buffer));
 		}
 
 		qsort(cycles, COUNT, sizeof(int), cmpfunc);
 
 		sprintf(print_buffer, "------------------------------------------------\r\n");
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		int min = cycles[0], med = cycles[COUNT/2], max = cycles[COUNT-1];
 		sprintf(print_buffer, "cycles  min/med/max = %d/%d/%d \r\n", min, med, max);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		sprintf(print_buffer, "time    min/med/max = %d/%d/%d us \r\n", (int)min*1000/MHZ, (int)med*1000/MHZ, (int)max*1000/MHZ);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 	}
 
 	if (ctxsw_instr[0]>0 && cycles[0]>0){
@@ -223,28 +223,28 @@ void print_stats(void){
 		qsort(ctxsw_instr, COUNT, sizeof(int), cmpfunc);
 
 		sprintf(print_buffer, "\r\n");
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		int min = ctxsw_instr[0], med = ctxsw_instr[COUNT/2], max = ctxsw_instr[COUNT-1];
 		sprintf(print_buffer, "ctx sw instr  min/med/max = %d/%d/%d \r\n", min, med, max);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		min = ctxsw_cycle[0], med = ctxsw_cycle[COUNT/2], max = ctxsw_cycle[COUNT-1];
 		sprintf(print_buffer, "ctx sw cycles min/med/max = %d/%d/%d \r\n", min, med, max);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		sprintf(print_buffer, "ctx sw time   min/med/max = %d/%d/%d us \r\n", (int)min*1000/MHZ, (int)med*1000/MHZ, (int)max*1000/MHZ);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 	} else if (ctxsw_instr[0]>0 && cycles[0]==0){
 
 		sprintf(print_buffer, "ctx sw instr  = %d \r\n", ctxsw_instr[0]);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		sprintf(print_buffer, "ctx sw cycles = %d \r\n", ctxsw_cycle[0]);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 		sprintf(print_buffer, "ctx sw time   = %d us \r\n", (int)ctxsw_cycle[0]*1000/MHZ);
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 	}
 
 	if (cycles[0]==0 && ctxsw_instr[0]==0){
 		sprintf(print_buffer, "stats : n/a \r\n");
-		mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+		msg_write(&zone2, print_buffer, strlen(print_buffer));
 	}
 
 }
@@ -319,7 +319,7 @@ void print_pmp_ranges(void){
 #else
 		sprintf(print_buffer, "0x%08" PRIX64 " 0x%08" PRIX64 " %s \r\n", start, end, rwx);
 #endif
-        mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+        msg_write(&zone2, print_buffer, strlen(print_buffer));
 	}
 
 } // print_pmpcfg()
@@ -338,7 +338,7 @@ static char history[CMD_LINE_SIZE+1]="";
 
 	while(c!='\r'){
 
-		if ( mzmsg_read(&zone2, &c, 1) >0 ) {
+		if ( msg_read(&zone2, &c, 1) >0 ) {
 
 			if (c=='\e'){
 				esc=1;
@@ -351,23 +351,23 @@ static char history[CMD_LINE_SIZE+1]="";
 
 			} else if (esc==3 && c=='~'){ // del key
 				for (int i=p; i<strlen(cmd_line); i++) cmd_line[i]=cmd_line[i+1];
-				mzmsg_write(&zone2, "\e7\e[K", 5); // save curs pos // clear line from curs pos
-				mzmsg_write(&zone2, &cmd_line[p], strlen(cmd_line)-p);
-				mzmsg_write(&zone2, "\e8", 2); // restore curs pos
+				msg_write(&zone2, "\e7\e[K", 5); // save curs pos // clear line from curs pos
+				msg_write(&zone2, &cmd_line[p], strlen(cmd_line)-p);
+				msg_write(&zone2, "\e8", 2); // restore curs pos
 				esc=0;
 
 			} else if (esc==2 && c=='C'){ // right arrow
 				esc=0;
 				if (p < strlen(cmd_line)){
 					p++;
-					mzmsg_write(&zone2, "\e[C", 3);
+					msg_write(&zone2, "\e[C", 3);
 				}
 
 			} else if (esc==2 && c=='D'){ // left arrow
 				esc=0;
 				if (p>0){
 					p--;
-					mzmsg_write(&zone2, "\e[D", 3);
+					msg_write(&zone2, "\e[D", 3);
 				}
 
 			} else if (esc==2 && c=='A'){ // up arrow
@@ -375,9 +375,9 @@ static char history[CMD_LINE_SIZE+1]="";
 				if (strlen(history)>0){
 					p=strlen(history);
 					strcpy(cmd_line, history);
-					mzmsg_write(&zone2, "\e[2K", 4); // 2K clear entire line - cur pos dosn't change
-					mzmsg_write(&zone2, "\rZ1 > ", 6);
-					mzmsg_write(&zone2, &cmd_line[0], strlen(cmd_line));
+					msg_write(&zone2, "\e[2K", 4); // 2K clear entire line - cur pos dosn't change
+					msg_write(&zone2, "\rZ1 > ", 6);
+					msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
 				}
 
 			} else if (esc==2 && c=='B'){ // down arrow
@@ -386,16 +386,16 @@ static char history[CMD_LINE_SIZE+1]="";
 			} else if ((c=='\b' || c=='\x7f') && p>0 && esc==0){ // backspace
 				p--;
 				for (int i=p; i<strlen(cmd_line); i++) cmd_line[i]=cmd_line[i+1];
-				mzmsg_write(&zone2, "\e[D\e7\e[K", 8);
-				mzmsg_write(&zone2, &cmd_line[p], strlen(cmd_line)-p);
-				mzmsg_write(&zone2, "\e8", 2);
+				msg_write(&zone2, "\e[D\e7\e[K", 8);
+				msg_write(&zone2, &cmd_line[p], strlen(cmd_line)-p);
+				msg_write(&zone2, "\e8", 2);
 
 			} else if (c>=' ' && c<='~' && p < CMD_LINE_SIZE && esc==0){
 				for (int i = CMD_LINE_SIZE-1; i > p; i--) cmd_line[i]=cmd_line[i-1]; // make room for 1 ch
 				cmd_line[p]=c;
-				mzmsg_write(&zone2, "\e7\e[K",  strlen("\e7\e[K")); // save curs pos // clear line from curs pos
-				mzmsg_write(&zone2, &cmd_line[p], strlen(cmd_line)-p); p++;
-				mzmsg_write(&zone2, "\e8\e[C", strlen("\e8\e[C")); // restore curs pos // move curs right 1 pos
+				msg_write(&zone2, "\e7\e[K",  strlen("\e7\e[K")); // save curs pos // clear line from curs pos
+				msg_write(&zone2, &cmd_line[p], strlen(cmd_line)-p); p++;
+				msg_write(&zone2, "\e8\e[C", strlen("\e8\e[C")); // restore curs pos // move curs right 1 pos
 			} else{
 				esc=0;
             }
@@ -408,11 +408,11 @@ static char history[CMD_LINE_SIZE+1]="";
 			switch (msg[0]) {
 				case 'p' :	msg[0] = 'P'; ECALL_SEND(1, (void*)msg);
 							break;
-				case 'P' :	mzmsg_write(&zone2, "\e7\e[2K", 6);
-							mzmsg_write(&zone2, "\rZ1 > pong\r\n", 12);
-							mzmsg_write(&zone2, "\nZ1 > ", 6);
-							mzmsg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-							mzmsg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
+				case 'P' :	msg_write(&zone2, "\e7\e[2K", 6);
+							msg_write(&zone2, "\rZ1 > pong\r\n", 12);
+							msg_write(&zone2, "\nZ1 > ", 6);
+							msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
+							msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 							break;
 				default  :	break;
 			}
@@ -421,11 +421,11 @@ static char history[CMD_LINE_SIZE+1]="";
 		// poll & print Zone3 incoming messages
 		if (ECALL_RECV(3, msg)){
 			switch (msg[0]) {
-				case 'p' :	mzmsg_write(&zone2, "\e7\e[2K", 6);
-							mzmsg_write(&zone2, "\rZ3 > pong\r\n", 12);
-							mzmsg_write(&zone2, "\nZ3 > ", 6);
-							mzmsg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-							mzmsg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
+				case 'p' :	msg_write(&zone2, "\e7\e[2K", 6);
+							msg_write(&zone2, "\rZ3 > pong\r\n", 12);
+							msg_write(&zone2, "\nZ3 > ", 6);
+							msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
+							msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 							break;
 				default  :	break;
 			}
@@ -436,11 +436,11 @@ static char history[CMD_LINE_SIZE+1]="";
 			switch (msg[0]) {
 				case 'p' :	msg[0] = 'P'; ECALL_SEND(4, (void*)msg);
 							break;
-				case 'P' :	mzmsg_write(&zone2, "\e7\e[2K", 6);
-							mzmsg_write(&zone2, "\rZ4 > pong\r\n", 12); 
-							mzmsg_write(&zone2, "\nZ1 > ", 6);
-							mzmsg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-							mzmsg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
+				case 'P' :	msg_write(&zone2, "\e7\e[2K", 6);
+							msg_write(&zone2, "\rZ4 > pong\r\n", 12);
+							msg_write(&zone2, "\nZ1 > ", 6);
+							msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
+							msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 							break;
 				default  :	break;
 			}
@@ -450,32 +450,32 @@ static char history[CMD_LINE_SIZE+1]="";
 		uint32_t ulNotificationValue = 0;
 
 		if( xTaskNotifyWait( 0x00, 0x00, &ulRobotValue, 0) == pdTRUE ) {
-			//mzmsg_write(&zone2, "\e7\e[2K", 6); // save curs pos // 2K clear entire line - cur pos dosn't change
+			//msg_write(&zone2, "\e7\e[2K", 6); // save curs pos // 2K clear entire line - cur pos dosn't change
 			switch(ulRobotValue) {
-				case 0: sprintf(print_buffer, "\rZ1 > USB DEVICE DETACH\r\n"); 
-						mzmsg_write(&zone2, print_buffer, strlen(print_buffer)); 
+				case 0: sprintf(print_buffer, "\rZ1 > USB DEVICE DETACH\r\n");
+						msg_write(&zone2, print_buffer, strlen(print_buffer));
 						break;
 				case 1: sprintf(print_buffer, "\rZ1 > USB DEVICE ATTACH VID=0x1267 PID=0x0000\r\n");
-						mzmsg_write(&zone2, print_buffer, strlen(print_buffer)); 
-						mzmsg_write(&zone2, (char*)robotinfo_msg, strlen(robotinfo_msg)); 
+						msg_write(&zone2, print_buffer, strlen(print_buffer));
+						msg_write(&zone2, (char*)robotinfo_msg, strlen(robotinfo_msg));
 						break;
 			}
-			mzmsg_write(&zone2, "\nZ1 > ", 6);
-			mzmsg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-			//mzmsg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
+			msg_write(&zone2, "\nZ1 > ", 6);
+			msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
+			//msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 		}
 
 		if( xQueueReceive( xbuttons_queue, &ulNotificationValue, 0) == pdTRUE ) {
-			mzmsg_write(&zone2, "\e7\e[2K", 6); // save curs pos // 2K clear entire line - cur pos dosn't change
+			msg_write(&zone2, "\e7\e[2K", 6); // save curs pos // 2K clear entire line - cur pos dosn't change
 			switch(ulNotificationValue) {
 				case 216 : sprintf(print_buffer, "\rZ1 > CLINT IRQ 16 [BTN0]\r\n"); break;
 				case 217 : sprintf(print_buffer, "\rZ1 > CLINT IRQ 17 [BTN1]\r\n"); break;
 				case 218 : sprintf(print_buffer, "\rZ1 > CLINT IRQ 18 [BTN2]\r\n"); break;
 			}
-			mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
-			mzmsg_write(&zone2, "\nZ1 > ", 6);
-			mzmsg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-			mzmsg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
+			msg_write(&zone2, print_buffer, strlen(print_buffer));
+			msg_write(&zone2, "\nZ1 > ", 6);
+			msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
+			msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 		}
 
 		taskYIELD();
@@ -495,20 +495,20 @@ static char history[CMD_LINE_SIZE+1]="";
 void cliTask( void *pvParameters){
 
     char c = 0;
-	mzmsg_init(&zone2, 2);
+	msg_init(&zone2, 2);
 
-    mzmsg_write(&zone2, (char *) welcome_msg, sizeof(welcome_msg));
+    msg_write(&zone2, (char *) welcome_msg, sizeof(welcome_msg));
     print_cpu_info();
-    mzmsg_write(&zone2, (char *) taskinfo_msg, sizeof(taskinfo_msg));
+    msg_write(&zone2, (char *) taskinfo_msg, sizeof(taskinfo_msg));
 
     char cmd_line[CMD_LINE_SIZE+1]="";
 	int msg[4]={0,0,0,0};
 
     while(1){
 
-	    mzmsg_write(&zone2, "\r\nZ1 > ", 7);
+	    msg_write(&zone2, "\r\nZ1 > ", 7);
         readline(cmd_line);
-        mzmsg_write(&zone2, "\r\n", 2);
+        msg_write(&zone2, "\r\n", 2);
 
 		char * tk1 = strtok (cmd_line, " ");
 		char * tk2 = strtok (NULL, " ");
@@ -522,10 +522,10 @@ void cliTask( void *pvParameters){
 				const uint64_t addr = strtoull(tk2, NULL, 16);
 				asm ("lbu %0, (%1)" : "+r"(data) : "r"(addr));
 				sprintf(print_buffer, "0x%08x : 0x%02x \r\n", (unsigned int)addr, data);
-				mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+				msg_write(&zone2, print_buffer, strlen(print_buffer));
 			} else {
 				sprintf(print_buffer, "Syntax: load address \r\n");
-				mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+				msg_write(&zone2, print_buffer, strlen(print_buffer));
 			}
 		} else if (tk1 != NULL && strcmp(tk1, "store")==0){
 			if (tk2 != NULL && tk3 != NULL){
@@ -540,11 +540,11 @@ void cliTask( void *pvParameters){
 					asm ( "sw %0, (%1)" : : "r"(data), "r"(addr));
 
 				sprintf(print_buffer, "0x%08x : 0x%02x \r\n", (unsigned int)addr, (unsigned int)data);
-				mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
-			} else { 
+				msg_write(&zone2, print_buffer, strlen(print_buffer));
+			} else {
 				sprintf(print_buffer, "Syntax: store address data \r\n");
-				mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
-			} 
+				msg_write(&zone2, print_buffer, strlen(print_buffer));
+			}
 
 		} else if (tk1 != NULL && strcmp(tk1, "send")==0){
 			if (tk2 != NULL && tk2[0]>='1' && tk2[0]<='4' && tk3 != NULL){
@@ -573,8 +573,8 @@ void cliTask( void *pvParameters){
 									break;
 					}
 				} else if(tk2[0] - '0' == zone2.zone) {
-					sprintf(print_buffer, "Cannot send to that zone, channel is used by mzmsg!\r\n");
-					mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+					sprintf(print_buffer, "Cannot send to that zone, channel is used for CLI access!\r\n");
+					msg_write(&zone2, print_buffer, strlen(print_buffer));
 				} else {
 					msg[0]=(unsigned int)*tk3; msg[1]=0; msg[2]=0; msg[3]=0;
 					ECALL_SEND(tk2[0]-'0', msg);
@@ -582,21 +582,21 @@ void cliTask( void *pvParameters){
 				
 			} else {
 				sprintf(print_buffer, "Syntax: send {1|2|3|4} message \r\n");
-				mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+				msg_write(&zone2, print_buffer, strlen(print_buffer));
 			}
 		} else if (tk1 != NULL && strcmp(tk1, "recv")==0){
 			if (tk2 != NULL && tk2[0]>='1' && tk2[0]<='4'){
 				if(tk2[0] - '0' == zone2.zone) {
-					sprintf(print_buffer, "Cannot recv from that zone, channel is used by mzmsg!\r\n");
-					mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+					sprintf(print_buffer, "Cannot recv from that zone, channel is used for CLI access!\r\n");
+					msg_write(&zone2, print_buffer, strlen(print_buffer));
 				} else {
 					ECALL_RECV(tk2[0]-'0', msg);
 					sprintf(print_buffer, "msg : 0x%08x 0x%08x 0x%08x 0x%08x \r\n", msg[0], msg[1], msg[2], msg[3]);
-					mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+					msg_write(&zone2, print_buffer, strlen(print_buffer));
 				}
 			} else {
 				sprintf(print_buffer, "Syntax: recv {1|2|3|4} \r\n");
-				mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+				msg_write(&zone2, print_buffer, strlen(print_buffer));
 			}
 		} else if (tk1 != NULL && strcmp(tk1, "yield")==0){
 			uint64_t C1 = ECALL_CSRR_MCYCLE();
@@ -604,7 +604,7 @@ void cliTask( void *pvParameters){
 			uint64_t C2 = ECALL_CSRR_MCYCLE();
 			const int T = ((C2-C1)*1000000)/CPU_FREQ;
 			sprintf(print_buffer, (T>0 ? "yield : elapsed time %dus \r\n" : "yield : n/a \r\n"), T);
-			mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+			msg_write(&zone2, print_buffer, strlen(print_buffer));
 		} else if (tk1 != NULL && strcmp(tk1, "stats")==0){
 			print_stats();
 		} else if (tk1 != NULL && strcmp(tk1, "restart")==0){
@@ -612,7 +612,7 @@ void cliTask( void *pvParameters){
 		} else {
 			sprintf(print_buffer,
 				"Commands: load store send recv yield pmp stats restart\n");
-			mzmsg_write(&zone2, print_buffer, strlen(print_buffer));
+			msg_write(&zone2, print_buffer, strlen(print_buffer));
 		}
 
 		taskYIELD();

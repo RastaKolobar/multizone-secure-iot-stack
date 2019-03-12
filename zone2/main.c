@@ -168,7 +168,7 @@ void cb_telnet(uint16_t ev, struct pico_socket *s)
     }
 }
 
-void mzmsg_proc(struct queue *txq, struct queue *rxq)
+void msg_proc(struct queue *txq, struct queue *rxq)
 {
     int recv;
     char data[16];
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]){
     struct pico_ip4 ipaddr, netmask;
     struct pico_socket* socket;
     struct pico_device* dev;
-    struct queue mzmsg_to1, mzmsg_from1;
+    struct queue msg_to1, msg_from1;
     uint16_t bmsr;
     int ret;
 
@@ -473,8 +473,8 @@ int main(int argc, char *argv[]){
         bmsr = pico_xemaclite_mdio_read(XEMACLITE_ADDRESS, PHY_ADDRESS, BMSR_REG);
     } while ((bmsr & BMSR_LINK_STATUS) == 0);
 
-    qinit(&mzmsg_to1);
-    qinit(&mzmsg_from1);
+    qinit(&msg_to1);
+    qinit(&msg_from1);
 
     /* initialise the stack. Super important if you don't want ugly stuff like
      * segfaults and such! */
@@ -560,14 +560,14 @@ int main(int argc, char *argv[]){
     {
         int msg[4] = {0,0,0,0};
 
-        mzmsg_proc(&mzmsg_from1, &mzmsg_to1);
+        msg_proc(&msg_from1, &msg_to1);
 
         if (sock_client) {
-            telnet_client(sock_client, &mzmsg_to1, &mzmsg_from1);
+            telnet_client(sock_client, &msg_to1, &msg_from1);
         }
 
         if (ssl) {
-            tls_client(ssl, &mzmsg_to1, &mzmsg_from1);
+            tls_client(ssl, &msg_to1, &msg_from1);
         }
 
         pico_stack_tick();
