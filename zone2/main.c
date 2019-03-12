@@ -22,7 +22,7 @@
 
 #define NUM_PING 10
 
-#define MAX_QUEUE_LEN 64
+#define MAX_QUEUE_LEN 128
 
 struct queue {
     uint8_t wp;
