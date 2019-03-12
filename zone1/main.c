@@ -24,7 +24,6 @@ here. */
 #include "plic_driver.h"
 
 #include <libhexfive.h>
-#include <mzmsg.h>
 #include <cli.h>
 #include <robot.h>
 

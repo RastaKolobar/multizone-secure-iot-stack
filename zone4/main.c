@@ -118,7 +118,7 @@ void print_cpu_info(void) {
 
 	// mvendorid
 	const uint64_t mvendorid = ECALL_CSRR_MVENDID();
-	char *mvendorid_str = (mvendorid==0x10e31913 ? "SiFive, Inc.\0" : "Unknown\0");
+	char *mvendorid_str = (mvendorid==0x57c ? "Hex Five, Inc.\0" : "Unknown\0");
 	printf("Vendor        : 0x%08x %s \n", (int)mvendorid, mvendorid_str);
 
 	// marchid
@@ -390,8 +390,7 @@ void print_pmp_ranges(void){
 		int msg[4]={0,0,0,0};
 
 		// poll & print Zone4 incoming messages
-		ECALL_RECV(4, msg);
-		if (msg[0]){
+		if (ECALL_RECV(4, msg)){
 			switch (msg[0]) {
 				case 'p' :	msg[0] = 'P'; ECALL_SEND(4, (void*)msg);
 							break;
@@ -406,8 +405,7 @@ void print_pmp_ranges(void){
 		}
 
 		// poll & print Zone2 incoming messages
-		ECALL_RECV(2, msg);
-		if (msg[0]){
+		if (ECALL_RECV(2, msg)){
 			switch (msg[0]) {
 				case 'p' :	write(1, "\e7\e[2K", 6);
 							write(1, "\rZ2 > pong\r\n", 12); 
@@ -420,8 +418,7 @@ void print_pmp_ranges(void){
 		}
 
 		// poll & print Zone3 incoming messages
-		ECALL_RECV(3, msg);
-		if (msg[0]){
+		if (ECALL_RECV(3, msg)){
 			switch (msg[0]) {
 			case 'p' :	write(1, "\e7\e[2K", 6);
 						write(1, "\rZ3 > pong\r\n", 12); 
@@ -435,8 +432,7 @@ void print_pmp_ranges(void){
 
 		char skip_print = 0;
 		// poll & print Zone1 incoming messages
-		ECALL_RECV(1, msg);
-		if (msg[0]){
+		if (ECALL_RECV(1, msg)){
 
 			write(1, "\e7", 2); // save curs pos
 			write(1, "\e[2K", 4); // 2K clear entire line - cur pos dosn't change
