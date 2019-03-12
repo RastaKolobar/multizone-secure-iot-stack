@@ -12,6 +12,7 @@ int mzmsg_read(mzmsg_t *mzmsg, char *buf, size_t len){
     char data[16];
     int i = 0;
 
+    ECALL_YIELD();
     if (ECALL_RECV(mzmsg->zone, data)) {
         buf[0] = data[0];
         i = 1;
