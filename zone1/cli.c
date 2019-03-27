@@ -4,6 +4,11 @@
 #include <cli.h>
 #include <robot.h>
 #include <msg.h>
+#include <platform.h>
+#include <libhexfive.h>
+
+#define CMD_LINE_SIZE 32
+#define MSG_SIZE 4
 
 #define PRINT_BUFFER_SIZE   128
 static char print_buffer[PRINT_BUFFER_SIZE] = "";
@@ -103,7 +108,8 @@ void print_cpu_info(void) {
 // ------------------------------------------------------------------------
 
 	// misa
-	const uint64_t misa = ECALL_CSRR_MISA();
+	uint64_t misa = 0x0; asm volatile("csrr %0, misa" : "=r"(misa)); // trap & emulate example
+	//const uint64_t misa = ECALL_CSRR_MISA();
 
 	const int xlen = ((misa >> __riscv_xlen-2)&0b11)==1 ?  32 :
 					 ((misa >> __riscv_xlen-2)&0b11)==2 ?  64 :
@@ -120,13 +126,21 @@ void print_cpu_info(void) {
 
 	// mvendorid
 	const uint64_t mvendorid = ECALL_CSRR_MVENDID();
-	char *mvendorid_str = (mvendorid==0x57c ? "Hex Five, Inc.\0" : "Unknown\0");
+	const char *mvendorid_str = (mvendorid==0x10e31913 ? "SiFive, Inc.\0" :
+						         mvendorid==0x489      ? "SiFive, Inc.\0" :
+								 mvendorid==0x57c      ? "Hex Five, Inc.\0" :
+												         "\0");
 	sprintf(print_buffer, "Vendor        : 0x%08x %s \r\n", (int)mvendorid, mvendorid_str);
 	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// marchid
 	const uint64_t marchid = ECALL_CSRR_MARCHID();
-	sprintf(print_buffer, "Architecture  : 0x%08x \r\n", (int)marchid );
+	const char *marchid_str = (mvendorid==0x489 && (int)misa==0x40101105    && marchid==0x1 ? "E31\0" :
+						       mvendorid==0x489 && misa==0x8000000000101105 && marchid==0x1 ? "S51\0" :
+						       mvendorid==0x57c && (int)misa==0x40101105    && marchid==0x1 ? "X300\0" :
+								 	 	 	 	 	 	 	 	 	 	 	 	 	 		  "\0");
+	
+	sprintf(print_buffer, "Architecture  : 0x%08x %s \r\n", (int)marchid, marchid_str);
 	msg_write(&zone2, print_buffer, strlen(print_buffer));
 
 	// mimpid
@@ -401,8 +415,9 @@ static char history[CMD_LINE_SIZE+1]="";
             }
 		}
 
+		// poll & print incoming messages
+		int msg[MSG_SIZE]={0,0,0,0};
 
-		int msg[4]={0,0,0,0};
 		// poll & print Zone1 incoming messages
 		if (ECALL_RECV(1, msg)){;
 			switch (msg[0]) {
@@ -450,7 +465,6 @@ static char history[CMD_LINE_SIZE+1]="";
 		uint32_t ulNotificationValue = 0;
 
 		if( xTaskNotifyWait( 0x00, 0x00, &ulRobotValue, 0) == pdTRUE ) {
-			//msg_write(&zone2, "\e7\e[2K", 6); // save curs pos // 2K clear entire line - cur pos dosn't change
 			switch(ulRobotValue) {
 				case 0: sprintf(print_buffer, "\rZ1 > USB DEVICE DETACH\r\n");
 						msg_write(&zone2, print_buffer, strlen(print_buffer));
@@ -462,20 +476,17 @@ static char history[CMD_LINE_SIZE+1]="";
 			}
 			msg_write(&zone2, "\nZ1 > ", 6);
 			msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-			//msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 		}
 
 		if( xQueueReceive( xbuttons_queue, &ulNotificationValue, 0) == pdTRUE ) {
-			msg_write(&zone2, "\e7\e[2K", 6); // save curs pos // 2K clear entire line - cur pos dosn't change
 			switch(ulNotificationValue) {
-				case 216 : sprintf(print_buffer, "\rZ1 > CLINT IRQ 16 [BTN0]\r\n"); break;
+				case 216 : sprintf(print_buffer, "\rZ1 > PLIC IRQ 16 [BTN0]\r\n"); break;
 				case 217 : sprintf(print_buffer, "\rZ1 > CLINT IRQ 17 [BTN1]\r\n"); break;
 				case 218 : sprintf(print_buffer, "\rZ1 > CLINT IRQ 18 [BTN2]\r\n"); break;
 			}
 			msg_write(&zone2, print_buffer, strlen(print_buffer));
 			msg_write(&zone2, "\nZ1 > ", 6);
 			msg_write(&zone2, &cmd_line[0], strlen(cmd_line));
-			msg_write(&zone2, "\e8\e[2B", 6);   // restore curs pos // curs down down
 		}
 
 		taskYIELD();
@@ -501,8 +512,8 @@ void cliTask( void *pvParameters){
     print_cpu_info();
     msg_write(&zone2, (char *) taskinfo_msg, sizeof(taskinfo_msg));
 
-    char cmd_line[CMD_LINE_SIZE+1]="";
-	int msg[4]={0,0,0,0};
+	char cmd_line[CMD_LINE_SIZE+1]="";
+	int msg[MSG_SIZE]={0,0,0,0};
 
     while(1){
 
@@ -566,18 +577,22 @@ void cliTask( void *pvParameters){
 						case '<' : 
 						case '1' : 
 						case '0' : 	xQueueSend( robot_queue, &c, 0 ); 
-									break;
+								break;
 						default  :	
-									msg[0]=(unsigned int)*tk3; msg[1]=0; msg[2]=0; msg[3]=0;
-									ECALL_SEND(tk2[0]-'0', msg);
-									break;
+								for (int i=0; i<MSG_SIZE; i++)
+								msg[i] = i<strlen(tk3) ? (unsigned int)*(tk3+i) : 0x0;
+								if (!ECALL_SEND(tk2[0]-'0', msg))
+									msg_write(&zone2, "Error: Inbox full.\n", strlen("Error: Inbox full.\n"));
+								break;
 					}
 				} else if(tk2[0] - '0' == zone2.zone) {
 					sprintf(print_buffer, "Cannot send to that zone, channel is used for CLI access!\r\n");
 					msg_write(&zone2, print_buffer, strlen(print_buffer));
 				} else {
-					msg[0]=(unsigned int)*tk3; msg[1]=0; msg[2]=0; msg[3]=0;
-					ECALL_SEND(tk2[0]-'0', msg);
+					for (int i=0; i<MSG_SIZE; i++)
+						msg[i] = i<strlen(tk3) ? (unsigned int)*(tk3+i) : 0x0;
+					if (!ECALL_SEND(tk2[0]-'0', msg))
+						msg_write(&zone2, "Error: Inbox full.\n", strlen("Error: Inbox full.\n"));
 				}
 				
 			} else {
@@ -590,8 +605,11 @@ void cliTask( void *pvParameters){
 					sprintf(print_buffer, "Cannot recv from that zone, channel is used for CLI access!\r\n");
 					msg_write(&zone2, print_buffer, strlen(print_buffer));
 				} else {
-					ECALL_RECV(tk2[0]-'0', msg);
-					sprintf(print_buffer, "msg : 0x%08x 0x%08x 0x%08x 0x%08x \r\n", msg[0], msg[1], msg[2], msg[3]);
+					if (ECALL_RECV(tk2[0]-'0', msg))
+						sprintf(print_buffer, "msg : 0x%08x 0x%08x 0x%08x 0x%08x \n", msg[0], msg[1], msg[2], msg[3]);
+					else
+						sprintf(print_buffer, "Error: Inbox empty.\n");
+
 					msg_write(&zone2, print_buffer, strlen(print_buffer));
 				}
 			} else {

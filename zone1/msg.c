@@ -1,4 +1,5 @@
 /* Copyright(C) 2018 Hex Five Security, Inc. - All Rights Reserved */
+#include <FreeRTOS.h>
 
 #include <msg.h>
 #include <string.h>
@@ -37,12 +38,14 @@ int msg_write(msg_t *msg, char *buf, size_t len){
             i += transfer;
             buf += transfer;
         }
+        portYIELD();
         ECALL_YIELD();
     }
 
     if (len % 16 == 0) {
         memset(data, 0, 16);
         while (!ECALL_SEND(msg->zone, data)) {
+            portYIELD();
             ECALL_YIELD();
         }
     }

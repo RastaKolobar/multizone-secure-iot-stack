@@ -168,7 +168,10 @@ void button_0_handler(void){ // local interrupt
 
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
+    plic_source int_num  = PLIC_claim_interrupt(&g_plic); // claim
+
     GPIO_REG(GPIO_RISE_IP)  |= (1<<BUTTON_0_OFFSET);
+    PLIC_complete_interrupt(&g_plic, int_num); // complete
 
     if (!button_0_handling) {
         button_0_handling = 1;
@@ -293,6 +296,16 @@ void b0_irq_init() {
     GPIO_REG(GPIO_RISE_IE)    |= (1<<BUTTON_0_OFFSET);
 
     //enable the interrupt
+     PLIC_init(&g_plic,
+  	    PLIC_BASE,
+  	    PLIC_NUM_INTERRUPTS,
+  	    PLIC_NUM_PRIORITIES);
+
+
+    //enable_interrupt(16+LOCAL_INT_BTN_0, 2, button_0_handler);
+    PLIC_enable_interrupt (&g_plic, 16+LOCAL_INT_BTN_0);
+    PLIC_set_priority(&g_plic, 16+LOCAL_INT_BTN_0, 2);
+
     ECALL_IRQ_VECT(16+LOCAL_INT_BTN_0, _interrupt_entry);
     localISR[IRQ_M_LOCAL + LOCAL_INT_BTN_0] = button_0_handler;
 }
