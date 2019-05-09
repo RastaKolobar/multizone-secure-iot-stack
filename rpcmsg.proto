@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+import "nanopb.proto";
+
+message EccSignRequest {
+    required bytes data = 1 [(nanopb).max_size = 256];
+}
+
+message EccSignResponse {
+    required int32 result = 1;
+    required bytes data = 2 [(nanopb).max_size = 256];
+}

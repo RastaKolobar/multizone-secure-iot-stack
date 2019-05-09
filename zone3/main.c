@@ -2,6 +2,10 @@
 
 #include <platform.h>
 #include <libhexfive.h>
+#include <pb.h>
+#include <pb_encode.h>
+#include <pb_decode.h>
+#include "rpcmsg.pb.h"
 
 #include <stdio.h>
 
@@ -41,53 +45,77 @@ unsigned int my_rng_seed_gen(void)
     return rand_seed;
 }
 
-void eccSign(unsigned int inSz, unsigned int outSz)
+bool pb_ostream_cb(pb_ostream_t *stream, const uint8_t *buf, size_t count)
 {
-    static unsigned char *in;
-    static unsigned char *out;
-    int msg[4];
-    int i, ret;
-
-    in = (unsigned char*)malloc(inSz);
-    out = (unsigned char*)malloc(outSz);
+    int i;
 
     i = 0;
-    while (i < inSz) {
-        while (!ECALL_RECV(2, msg)) {
-            ECALL_YIELD();
-        }
-        memcpy(in+i, &msg[1], msg[0]);
-        i += msg[0];
-    }
-
-    ret = wc_ecc_sign_hash(in, inSz, out, &outSz, &rng, &eccKey);
-    msg[0] = 1;
-    msg[1] = ret;
-    msg[2] = outSz;
-    msg[3] = 0;
-
-    while (!ECALL_SEND(2, msg)) {
-        ECALL_YIELD();
-    }
-
-    i = 0;
-    while (i < outSz) {
+    while (i < count) {
+        int msg[4];
         int len;
-        if (outSz - i > 12)
-            len = 12;
-        else
-            len = outSz - i;
 
-        msg[0] = len;
-        memcpy(&msg[1], out + i, len);
+        if (count - i > 16) {
+            len = 16;
+        } else {
+            len = count - i;
+        }
+
+        memcpy(msg, buf + i, len);
         while (!ECALL_SEND(2, msg)) {
             ECALL_YIELD();
         }
         i += len;
     }
 
-    free(in);
-    free(out);
+    return true;
+}
+
+bool pb_istream_cb(pb_istream_t *stream, uint8_t *buf, size_t count)
+{
+    int i;
+
+    i = 0;
+    while (i < count) {
+        int msg[4];
+        int len;
+
+        if (count - i > 16) {
+            len = 16;
+        } else {
+            len = count - i;
+        }
+
+        while (!ECALL_RECV(2, msg)) {
+            ECALL_YIELD();
+        }
+        memcpy(buf + i, msg, len);
+        i += len;
+    }
+
+    return true;
+}
+
+void eccSign(void)
+{
+    int ret;
+    word32 outSz;
+    pb_ostream_t to_zone2 = { .callback = pb_ostream_cb, NULL, SIZE_MAX, 0 };
+    pb_istream_t from_zone2 = { .callback = pb_istream_cb, NULL, SIZE_MAX };
+
+    EccSignRequest *request = (EccSignRequest*)malloc(sizeof(EccSignRequest));
+    EccSignResponse *response = (EccSignResponse*)malloc(sizeof(EccSignResponse));
+
+    pb_decode_delimited(&from_zone2, EccSignRequest_fields, request);
+    outSz = 256;
+
+    ret = wc_ecc_sign_hash(request->data.bytes, request->data.size,
+            response->data.bytes, &outSz, &rng, &eccKey);
+    response->data.size = outSz;
+    response->result = ret;
+
+    free(request);
+    pb_encode_delimited(&to_zone2, EccSignResponse_fields, response);
+    free(response);
 }
 
 int main(void)
@@ -119,7 +147,7 @@ int main(void)
         if (ECALL_RECV(2, msg)) {
             switch (msg[0]) {
                 case 1:
-                    eccSign((unsigned int)msg[1], (unsigned int)msg[2]);
+                    eccSign();
                     break;
 
                 default:

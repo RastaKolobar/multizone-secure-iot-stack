@@ -10,6 +10,10 @@ LINKER_SCRIPT := flash.lds
 
 C_SRCS += main.c 
 
+C_SRCS += rpcmsg.pb.c ../ext/nanopb/pb_common.c ../ext/nanopb/pb_encode.c ../ext/nanopb/pb_decode.c
+HEADERS += rpcmsg.pb.h ../ext/nanopb/pb.h ../ext/nanopb/pb_common.h ../ext/nanopb/pb_encode.h ../ext/nanopb/pb_decode.h
+INCLUDES += -I../ext/nanopb
+
 WOLFSSL_SRC_DIR := ../ext/wolfssl
 
 # Defines
@@ -69,3 +73,13 @@ LDFLAGS += -L../ext/multizone
 LDFLAGS += $(if $(findstring rv64, $(RISCV_ARCH)), -lhexfive64, -lhexfive32)
 
 include $(NEWLIB_DIR)/newlib.mk
+
+CFLAGS += -Os
+
+main.o: rpcmsg.pb.h
+
+rpcmsg.pb.c rpcmsg.pb.h: ../rpcmsg.proto
+	protoc -I/usr/include -I../ext/nanopb/generator/proto -I. -I.. -o rpcmsg.pb ../rpcmsg.proto
+	python ../ext/nanopb/generator/nanopb_generator.py rpcmsg.pb
+
+CLEAN_OBJS += rpcmsg.pb rpcmsg.pb.c rpcmsg.pb.h

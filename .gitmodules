@@ -1,3 +1,6 @@
 [submodule "ext/wolfssl"]
 	path = ext/wolfssl
 	url = https://github.com/wolfSSL/wolfssl.git
+[submodule "ext/nanopb"]
+	path = ext/nanopb
+	url = https://github.com/nanopb/nanopb

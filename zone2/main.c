@@ -6,6 +6,10 @@
 
 #include <platform.h>
 #include <libhexfive.h>
+#include <pb.h>
+#include <pb_encode.h>
+#include <pb_decode.h>
+#include "rpcmsg.pb.h"
 
 #define RV32
 
@@ -372,7 +376,55 @@ unsigned int my_rng_seed_gen(void)
     return pico_rand();
 }
 
+bool pb_ostream_cb(pb_ostream_t *stream, const uint8_t *buf, size_t count)
+{
+    int i;
 
+    i = 0;
+    while (i < count) {
+        int msg[4];
+        int len;
+
+        if (count - i > 16) {
+            len = 16;
+        } else {
+            len = count - i;
+        }
+
+        memcpy(msg, buf + i, len);
+        while (!ECALL_SEND(3, msg)) {
+            ECALL_YIELD();
+        }
+        i += len;
+    }
+
+    return true;
+}
+
+bool pb_istream_cb(pb_istream_t *stream, uint8_t *buf, size_t count)
+{
+    int i;
+
+    i = 0;
+    while (i < count) {
+        int msg[4];
+        int len;
+
+        if (count - i > 16) {
+            len = 16;
+        } else {
+            len = count - i;
+        }
+
+        while (!ECALL_RECV(3, msg)) {
+            ECALL_YIELD();
+        }
+        memcpy(buf + i, msg, len);
+        i += len;
+    }
+
+    return true;
+}
 
 static int eccSign(WOLFSSL* ssl,
        const unsigned char* in, unsigned int inSz,
@@ -380,49 +432,26 @@ static int eccSign(WOLFSSL* ssl,
        const unsigned char* keyDer, unsigned int keySz,
        void* ctx)
 {
-    int msg[4];
-    int i, ret;
+    int ret;
+    pb_ostream_t to_zone3 = { .callback = pb_ostream_cb, NULL, SIZE_MAX, 0 };
+    pb_istream_t from_zone3 = { .callback = pb_istream_cb, NULL, SIZE_MAX };
 
-    msg[0] = 1;
-    msg[1] = inSz;
-    msg[2] = *outSz;
-    msg[3] = 0;
-
-    while (!ECALL_SEND(3, msg)) {
+    while(!ECALL_SEND(3, (int[4]){1, 0, 0, 0})) {
         ECALL_YIELD();
     }
 
-    i = 0;
-    while (i < inSz) {
-        int len;
-        if (inSz - i > 12)
-            len = 12;
-        else
-            len = inSz - i;
+    EccSignRequest *request = (EccSignRequest*)malloc(sizeof(EccSignRequest));
+    request->data.size = inSz;
+    memcpy(request->data.bytes, in, inSz);
+    pb_encode_delimited(&to_zone3, EccSignRequest_fields, request);
+    free(request);
 
-        msg[0] = len;
-        memcpy(&msg[1], in + i, len);
-        while (!ECALL_SEND(3, msg)) {
-            ECALL_YIELD();
-        }
-        i += len;
-    }
-
-    while (!ECALL_RECV(3, msg)) {
-        ECALL_YIELD();
-    }
-
-    ret = msg[1];
-    *outSz = msg[2];
-
-    i = 0;
-    while (i < *outSz) {
-        while (!ECALL_RECV(3, msg)) {
-            ECALL_YIELD();
-        }
-        memcpy(out+i, &msg[1], msg[0]);
-        i += msg[0];
-    }
+    EccSignResponse *response = (EccSignResponse*)malloc(sizeof(EccSignResponse));
+    pb_decode_delimited(&from_zone3, EccSignResponse_fields, response);
+    *outSz = response->data.size;
+    memcpy(out, response->data.bytes, *outSz);
+    ret = response->result;
+    free(response);
 
     return ret;
 }
