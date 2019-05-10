@@ -2,6 +2,10 @@ syntax = "proto2";
 
 import "nanopb.proto";
 
+service Zone3 {
+    rpc EccSign (EccSignRequest) returns (EccSignResponse) {}
+}
+
 message EccSignRequest {
     required bytes data = 1 [(nanopb).max_size = 256];
 }
