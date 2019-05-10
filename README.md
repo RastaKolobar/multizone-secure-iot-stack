@@ -33,6 +33,7 @@ Software requirements: Install the reference RISC-V toolchain for Linux - direct
  git submodule update --init --recursive
  sudo apt-get install libusb-0.1-4
  sudo apt-get install screen
+ sudo apt-get install protobuf-compiler and python-protobuf
 ```
 
 If you have not already done so, you need to edit or create a file to place the USB devices until plugdev group so you can access them without root privileges:
