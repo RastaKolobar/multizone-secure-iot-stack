@@ -48,6 +48,9 @@ export RISCV_ABI
 
 .PHONY: all 
 all: 
+ifeq (,$(wildcard ./ext/wolfssl/README))
+	$(error ext/wolfssl is empty, try `git submodule update --init --recursive`)
+endif
 	"$(MAKE)" -C zone1
 	"$(MAKE)" -C zone2 IPADDR="$(IPADDR)" NETMASK="$(NETMASK)"
 	"$(MAKE)" -C zone3
