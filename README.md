@@ -1,32 +1,32 @@
 # MultiZone Secure IoT Stack
 
-The first Secure IoT Stack for RISC-V – a secure implementation of freeRTOS with hardware enforced separation between the OS, TCP/IP stack and root of trust with TLS 1.3 / ECC for secure Internet of Things applications.
+The first secure IoT stack for RISC-V: a secure implementation of FreeRTOS with hardware-enforced software-defined separation between OS, TCP/IP stack, and root of trust with TLS 1.3 / ECC for secure Internet of Things applications.
 
-This reference implementation combines freeRTOS, picoTCP, wolfSSL and Root of Trust as physically isolated TEE zones
- - X300 Bitstream : Rocket core with Ethernet Peripheral for Xilinx A7-35T Arty Board
- - MultiZone Security Trusted Execution Environment configured for 4 Zones
- - Zone 1: FreeRTOS with 3 tasks (CLI, LED PWM, Robot)
- - Zone 2: PicoTCP + wolfSSL TLS 1.3 / ECC terminating Ethernet port
- - Zone 3: Root of Trust
- - Zone 4: USB UART Console
+This reference implementation combines FreeRTOS, picoTCP, wolfSSL, and root of trust as physically isolated TEE zones
+ - X300 Bitstream : Rocket rv32 with thernet peripheral for ARTY A7 Board
+ - MultiZone Security trusted execution environment configured for 4 Zones
+ - Zone 1: FreeRTOS with 3 tasks (CLI user interface, PWM LED rainbow, Robotic arm control)
+ - Zone 2: PicoTCP terminating Ethernet port
+ - Zone 3: WolfSSL TLS 1.3 / ECC Root of Trust
+ - Zone 4: UART local console application
 
 ### Installation ###
 
-The MultiZone Secure IoT Stack supports a multitude of hardware targets. For a complete evaluation of the framework it is reccomended to use the open source softcore X300 developed by Hex Five Security. It is an enhanced version of the E300 SoC (Rocket) maintained by SiFive - entirely free for commercial and non-commercial use. Like the E300, the X300 is designed to be programmed onto a Xilinx Artix-7 35T Arty FPGA.
+The MultiZone Secure IoT Stack supports a multitude of hardware targets. For a complete evaluation of the framework it is reccomended to use the open source softcore X300 developed by Hex Five Security. It is an enhanced version of the E300 SoC (Rocket rv32) maintained by SiFive - entirely free for commercial and non-commercial use. Like the E300, the X300 is designed to be programmed onto a Xilinx Artix-7 35T Arty FPGA.
 
-Hardware prerequisites: Xilinx Artix-7 35T Arty, Xilinx Vivado, Olimex ARM-USB-TINY-H Debugger
- - Download the X300 bitstream .mcs file from https://github.com/hex-five/multizone-fpga/releases
- - Program the .mcs file to the Arty board using Vivado
+Hardware prerequisites: Digilent ARTY A7 35T or 100T, Xilinx Vivado Lab, Olimex ARM-USB-TINY-H Debugger
+ - Download the latest X300 bitstream X300ArtyDevKitFPGAChip-1ab2531.mcs file from https://github.com/hex-five/multizone-fpga/releases
+ - Program the .mcs file to the Arty board using Vivado Lab
 
-Software requirements: Install the reference RISC-V toolchain for Linux - directions specific to a fresh Ubuntu 18.04 LTS, other Linux distros generally a subset. To connect via TLS you'll need a TLS 1.3 client. If you itend to use OpenSSL, make sure you have version 1.1.1a or greater. At the time of writing, OpenSSL included in Debian 9 (stretch) and Ubuntu 18.04.2 is version 1.1.0, which does not support TLS 1.3.   
+Software requirements: Install Hex Five reference RISC-V toolchain for Linux - directions specific to a fresh Ubuntu 18.04 LTS, other Linux distros generally a subset. To connect via TLS you'll need a TLS 1.3 client. If you itend to use OpenSSL, make sure you have version 1.1.1a or greater. At the time of writing, OpenSSL included in Debian 9 (stretch) and Ubuntu 18.04.2 is version 1.1.0, which does not support TLS 1.3.   
  ```
  sudo apt update
  sudo apt upgrade -y
  sudo apt install git make default-jre libftdi1-dev
  sudo ln -s /usr/lib/x86_64-linux-gnu/libmpfr.so.6 /usr/lib/x86_64-linux-gnu/libmpfr.so.4
- wget https://github.com/hex-five/multizone-sdk/releases/download/v0.1.0/riscv-gnu-toolchain-20181226.tar.xz
+ wget https://hex-five.com/wp-content/uploads/riscv-gnu-toolchain-20181226.tar.xz
  tar -xvf riscv-gnu-toolchain-20181226.tar.xz
- wget https://github.com/hex-five/multizone-sdk/releases/download/v0.1.0/riscv-openocd-20181226.tar.xz
+ wget https://hex-five.com/wp-content/uploads/riscv-openocd-20181226.tar.xz
  tar -xvf riscv-openocd-20181226.tar.xz
  git clone https://github.com/hex-five/multizone-secure-iot-stack
  cd multizone-secure-iot.stack
@@ -41,12 +41,12 @@ sudo vi /etc/udev/rules.d/99-openocd.rules
 ```
 Then place the following text in that file
 ```
-# These are for the HiFive1 Board
+# These are for the ARTY Board
 SUBSYSTEM=="usb", ATTR{idVendor}=="0403",
 ATTR{idProduct}=="6010", MODE="664", GROUP="plugdev"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0403",
 ATTRS{idProduct}=="6010", MODE="664", GROUP="plugdev"
-# These are for the Olimex Debugger for use with E310 Arty Dev Kit
+# These are for the Olimex Head ARM-USB-TINY-H
 SUBSYSTEM=="usb", ATTR{idVendor}=="15ba",
 ATTR{idProduct}=="002a", MODE="664", GROUP="plugdev"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="15ba",
@@ -121,10 +121,18 @@ The X300 is completely open source and free of charge for commercial and non-com
 | no perf counters | 2 perf counters, hpmcounter3 and hpmcounter4 |
 | no CLICs         | 3 CLICs (BTN0, BTN1 and BTN2)                |
 
+### Known Issues ###
+
+OpenOCD "make load": After power cycling the ARTY board the first upload takes a long time - see https://github.com/hex-five/multizone-fpga/issues/1. An easy workarond is to manually reset the board with the RESET button or to restart the OpenOCD/GDB session on the computer.
+
+### Additional Information ###
+
+ - Secure IoT Stack [manual.pdf](https://github.com/hex-five/multizone-secure-iot-stack/blob/master/manual.pdf)  
+ - MultiZone SDK [manual.pdf](https://github.com/hex-five/multizone-sdk/blob/master/manual.pdf)  
+ - Multi Zone API [README.md](https://github.com/hex-five/multizone-api/blob/master/README.md)  
+ - Frequently Asked Questions [http://hex-five.com/faq](https://hex-five.com/faq)  
+ - Contact Hex Five [http://hex-five.com/contact](https://hex-five.com/contact) 
+
 ### Legalities ###
 
 Please remember that export/import and/or use of strong cryptography software, providing cryptography hooks, or even just communicating technical details about cryptography software is illegal in some parts of the world. So when you import this software to your country, re-distribute it from there or even just email technical suggestions or even source patches to the authors or other people you are strongly advised to pay close attention to any laws or regulations which apply to you. Hex Five Security, Inc. and the authors of the software included in this repository are not liable for any violations you make here. So be careful, it is your responsibility. 
-
-### For More Information ###
-
-See manula.pdf or visit [http://www.hex-five.com](https://www.hex-five.com)
