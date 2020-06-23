@@ -46,5 +46,5 @@ $(C_OBJS): %.o: %.c $(HEADERS)
 
 .PHONY: clean
 clean:
-	rm -fr $(CLEAN_OBJS)
+	rm -f $(CLEAN_OBJS)
 
